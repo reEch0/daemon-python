@@ -4,9 +4,16 @@ import os
 import sys
 import atexit
 import signal
+import logging
+
+#logging.basicConfig(level=logging.INFO, filename='err_log.log', filemode='w')
 
 class Daemon:
-	def __init__(self, pidfile): self.pidfile = pidfile
+	def __init__(self, pidfile, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'): 
+		self.stdin = stdin
+		self.stdout = stdout
+		self.stderr = stderr
+		self.pidfile = pidfile
 
 	def daemonize(self):
 		"""Deamonize class. UNIX double fork mechanism."""
@@ -37,12 +44,12 @@ class Daemon:
 		# redirect standard file descriptors
 		sys.stdout.flush()
 		sys.stderr.flush()
-		si = open(os.devnull, 'r')
-		so = open(os.devnull, 'a+')
-		se = open(os.devnull, 'a+')
+		si = open(self.stdin, 'r')
+		so = open(self.stdout, 'a+')
+		se = open(self.stderr, 'a+')
 
 		os.dup2(si.fileno(), sys.stdin.fileno())
-		os.dup2(so.fileno(), sys.stdout.fileno())
+		os.dup2(so.fileno(), sys.stdout.fileno())		
 		os.dup2(se.fileno(), sys.stderr.fileno())
 
 		# write pidfile
@@ -61,17 +68,16 @@ class Daemon:
 			if os.path.getsize(self.pidfile) > 0:
 				print('скрип уже запущен')
 				sys.exit()
-		#print('start')
 		self.daemonize()
 		self.run()
 	def stop(self):
 		# your code
 		try:
-			pid = open(self.pidfile)
-			int_pid = int(pid.readline())
-			print(pid.readline())
-			os.kill(int_pid,signal.SIGSTOP)
-			os.remove(self.pidfile)
+			f = open(self.pidfile,'r')
+			int_pid = int(f.readline().strip().lstrip())
+			#logging.info(int_pid)
+			self.delpid()
+			os.kill(int_pid,signal.SIGTERM)		
 		except:
 			sys.stderr.write('скрип не запущен')
 			sys.exit()
@@ -83,7 +89,6 @@ class Daemon:
 		self.start()
 
 	def run(self):
-		print('run', self.pidfile)
 		pass
 	"""You should override this method when you subclass Daemon."""
 	"""It will be called after the process has been daemonized by"""

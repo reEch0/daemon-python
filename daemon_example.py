@@ -1,62 +1,47 @@
 #!/usr/bin/python3
 import time
-from deamon import Daemon
+from daemon import Daemon
 import gi
 gi.require_version("Notify", "0.7")
 from gi.repository import Notify
 import subprocess
-#from sys import argv
 import sys
 import os
+import logging
+import pathlib
+logging.basicConfig(level=logging.INFO, filename='mes_log.log', filemode='w')
 
-COMMAND_LOG = "git log --graph --pretty==format:'%Cred%h%Creset - %C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative master..origin/master"
-COMMAND_FETCH = "get fetch"
+#ps -ef | grep python для просмотра рабочих процессов
 
-path_gir_dir1 = "home/kovalenko/git_dir1/test"
+path = pathlib.Path(__file__).parent.resolve()
 
+def checkCommit(folder):
+    subprocess.run(['git', f'--git-dir={path}/{folder}/.git', 'fetch'])
+    commit = subprocess.run(['git', f'--git-dir={path}/{folder}/.git', 'log', '--graph', "--pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset'", '--abbrev-commit', '--date=relative', 'master..origin/master'], text=True, capture_output=True)
+    return commit.stdout
 
 class MyDaemon(Daemon):
     def run(self):
-        Notify.Notification.new("run").show()        
-        #self.runBash(COMMAND_LOG)
-        #self.checkCommit()
-
-        file = open('home/kovalenko/example.txt','w+')
-        file.write('checkCom')
-        call_proc = subprocess.run('git',path_gir_dir1,'fetch')
-        #file.write(call_proc)
-        file.close()
+        Notify.init("MyDaemon")
+        time.sleep(1)
+        Notify.Notification.new("run").show()
+        folders = [folder for folder in os.listdir(path) if os.path.isdir(f'{path}/{folder}')]
         while True:
-            time.sleep(1)
+            for folder in folders:
+                output = checkCommit(folder)
+                if output:
+                    Notify.Notification.new(f'folder: {folder}',output).show()            
+            time.sleep(10)        
 
-    def runBash(commandLine):                
-        proc = subprocess.Popen(commandLine, shell=True,stdout=subprocess.PIPE)
-        out = proc.stdout.read().strip()
-        #file.write(out)
-        return out
-    def checkCommit():
-        #file = open('example.txt','a+')
-        #file.write('checkCom')
-        call_proc = subprocess.run('git',path_gir_dir1,'fetch')
-        #file.write(call_proc)
-        #file.close()
-        return 1
-    
-daemon = MyDaemon('/home/kovalenko/deamon.pid')
-Notify.init("MyDaemon")
-#try:
-Notify.Notification.new(sys.argv[1]).show()
+daemon = MyDaemon('/home/student/daemon-python/deamon.pid') 
+
 if sys.argv[1] == "start":
-    daemon.start()
-    #Notify.Notification.new("daemon start").show()
+    logging.info('start')
+    daemon.start()    
 elif sys.argv[1] == "stop":
-    daemon.stop()
-    Notify.Notification.new("daemon stop").show()
+    daemon.stop()    
 elif sys.argv[1] == "restart":
     daemon.restart()
-    Notify.Notification.new("daemon restart").show()
-#except :
-    #Notify.Notification.new("arguments error: no find argument\nenter someone argument\nstart\nstop\nrestart").show()
-    #sys.exit()
-
-#Notify.Notification.new("test notify").show()
+else:
+    Notify.Notification.new("arguments error: no find argument\nenter someone argument\nstart\nstop\nrestart").show()
+    sys.exit()
